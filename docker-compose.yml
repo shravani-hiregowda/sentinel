@@ -1,0 +1,67 @@
+version: '3.8'
+
+services:
+  # Redis service (Required for BullMQ queue/jobs processing in backend)
+  redis:
+    image: redis:7-alpine
+    container_name: sentinel-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis-data:/data
+    restart: always
+
+  # Optional local MongoDB service (For self-contained offline deployment)
+  mongodb:
+    image: mongo:6-jammy
+    container_name: sentinel-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    restart: always
+
+  # Express Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sentinel-backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      # By default, use local MongoDB container. Can be overridden in host shell/env to use MongoDB Atlas
+      - MONGO_URI=${MONGO_URI:-mongodb://mongodb:27017/sentinel}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+    depends_on:
+      - redis
+      - mongodb
+    restart: always
+
+  # React Frontend Service (Served via high-performance Nginx container)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Build-time argument for Vite to communicate with the backend on host's port 5000
+        - VITE_API_URL=http://localhost:5000
+    container_name: sentinel-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  redis-data:
+  mongo-data:
