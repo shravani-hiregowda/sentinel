@@ -12,16 +12,6 @@ services:
       - redis-data:/data
     restart: always
 
-  # Optional local MongoDB service (For self-contained offline deployment)
-  mongodb:
-    image: mongo:6-jammy
-    container_name: sentinel-mongodb
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongo-data:/data/db
-    restart: always
-
   # Express Backend Service
   backend:
     build:
@@ -33,7 +23,7 @@ services:
     environment:
       - PORT=5000
       # By default, use local MongoDB container. Can be overridden in host shell/env to use MongoDB Atlas
-      - MONGO_URI=${MONGO_URI:-mongodb://mongodb:27017/sentinel}
+      - MONGO_URI=${MONGO_URI}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - NODE_ENV=production
@@ -44,7 +34,7 @@ services:
       - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
     depends_on:
       - redis
-      - mongodb
+
     restart: always
 
   # React Frontend Service (Served via high-performance Nginx container)
@@ -54,7 +44,7 @@ services:
       dockerfile: Dockerfile
       args:
         # Build-time argument for Vite to communicate with the backend on host's port 5000
-        - VITE_API_URL=http://localhost:5000
+        - VITE_API_URL=http://16.176.13.93:5000
     container_name: sentinel-frontend
     ports:
       - "3000:80"
@@ -64,4 +54,3 @@ services:
 
 volumes:
   redis-data:
-  mongo-data:
