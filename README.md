@@ -5,6 +5,12 @@ It enables administrators to create tasks, assign owners, track state transition
 
 Built with a strong focus on engineering discipline, role-based access control, and real-world operational workflows.
 
+## 🌐 Live Demo
+* **Frontend (Vercel):** *[Deploying...]*
+* **Backend API (Render):** *[Deploying...]*
+
+---
+
 🚀 Key Features
 🔐 Authentication & Authorization
 
