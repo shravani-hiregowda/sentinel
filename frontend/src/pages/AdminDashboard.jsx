@@ -44,9 +44,9 @@ export default function AdminDashboard() {
   };
 
   /* ---------------- LOAD DASHBOARD ---------------- */
-  const loadDashboard = useCallback(async () => {
+  const loadDashboard = useCallback(async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
 
       const summaryData = await fetchSummary();
       const memberData = await fetchMembers();
@@ -67,12 +67,12 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error("❌ Dashboard load failed:", err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadDashboard();
+    loadDashboard(true);
   }, [loadDashboard]);
 
   /* ---------------- SOCKET LISTENERS ---------------- */
@@ -82,7 +82,7 @@ export default function AdminDashboard() {
     if (!socket) return;
 
     const handleUpdate = () => {
-      loadDashboard();
+      loadDashboard(false);
     };
 
     socket.on("task_created", handleUpdate);

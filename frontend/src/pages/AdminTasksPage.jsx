@@ -188,20 +188,20 @@ export default function AdminTasksPage() {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState("board");
 
-  const loadTasks = useCallback(async () => {
+  const loadTasks = useCallback(async (showLoading = false) => {
     try {
-      setLoading(true);
+      if (showLoading) setLoading(true);
       const res = await fetchAdminTasks({ limit: 100 }); // Default fetch for board
       setTasks(res?.tasks || []);
     } catch (err) {
       console.error("Failed to load tasks", err);
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadTasks();
+    loadTasks(true);
   }, [loadTasks]);
 
   /* ---------------- SOCKET LISTENERS ---------------- */
@@ -209,7 +209,7 @@ export default function AdminTasksPage() {
 
   useEffect(() => {
     if (!socket) return;
-    const handleUpdate = () => loadTasks();
+    const handleUpdate = () => loadTasks(false);
     socket.on("task_created", handleUpdate);
     socket.on("task_updated", handleUpdate);
     socket.on("task_escalated", handleUpdate);

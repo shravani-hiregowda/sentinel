@@ -107,15 +107,15 @@ export default function MemberDashboard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [timelineData, setTimelineData] = useState(null);
 
-  const loadTasks = async () => {
-    setLoading(true);
+  const loadTasks = async (showLoading = false) => {
+    if (showLoading) setLoading(true);
     const data = await fetchMyTasks();
     setTasks(data?.tasks || []);
-    setLoading(false);
+    if (showLoading) setLoading(false);
   };
 
   useEffect(() => {
-    loadTasks();
+    loadTasks(true);
   }, []);
 
   /* ---------------- SOCKET LISTENERS ---------------- */
@@ -123,7 +123,7 @@ export default function MemberDashboard() {
 
   useEffect(() => {
     if (!socket) return;
-    const handleUpdate = () => loadTasks();
+    const handleUpdate = () => loadTasks(false);
     socket.on("task_created", handleUpdate);
     socket.on("task_updated", handleUpdate);
     socket.on("task_escalated", handleUpdate);
@@ -145,7 +145,7 @@ export default function MemberDashboard() {
     if (type === "ACK") await ackTaskApi(id);
     if (type === "START") await startTaskApi(id);
     if (type === "COMPLETE") await completeTaskApi(id);
-    loadTasks();
+    loadTasks(false);
   };
 
   const columns = {
