@@ -88,6 +88,9 @@ export default function Login() {
         <p style={footer}>
           Don't have an organization? <Link to="/register">Create one</Link>
         </p>
+        <p style={{...footer, marginTop: 12}}>
+          <Link to="/" style={{ color: "var(--color-text-muted)", fontSize: 13, display: "inline-block", marginTop: 8 }}>← Back to Home</Link>
+        </p>
         <p style={{...footer, marginTop: 12}}>© {new Date().getFullYear()} Sentinel</p>
       </div>
     </div>

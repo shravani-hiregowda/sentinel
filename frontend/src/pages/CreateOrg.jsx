@@ -91,6 +91,9 @@ export default function CreateOrg() {
         <p style={footer}>
           Already have an account? <Link to="/login">Login here</Link>
         </p>
+        <p style={{...footer, marginTop: 12}}>
+          <Link to="/" style={{ color: "var(--color-text-muted)", fontSize: 13, display: "inline-block", marginTop: 8 }}>← Back to Home</Link>
+        </p>
       </div>
     </div>
   );

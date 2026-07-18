@@ -9,12 +9,10 @@ export default function LandingPage() {
       {/* ─── HEADER ─── */}
       <header style={headerStyle}>
         <div style={logoContainer}>
-          <span style={logoEmoji}>🛡️</span>
           <span style={logoText}>Sentinel</span>
         </div>
         <nav style={navLinks}>
           <a href="#features" style={navLink}>Features</a>
-          <a href="#architecture" style={navLink}>Architecture</a>
           {user ? (
             <Link
               to={user.role === "ADMIN" ? "/admin/dashboard" : "/member/tasks"}
@@ -33,14 +31,13 @@ export default function LandingPage() {
 
       {/* ─── HERO SECTION ─── */}
       <section style={heroSection}>
-        <div style={heroBadge}>Enterprise Accountability</div>
+        <div style={heroBadge}>Governance & Accountability</div>
         <h1 style={heroTitle}>
-          SLA-Driven Task Governance <br />
-          <span style={gradientText}>& Compliance Platform</span>
+          SLA-Driven Task Governance Platform
         </h1>
         <p style={heroSub}>
-          Enforce ownership, track transition audit logs, and monitor SLA breaches in real-time. 
-          Ensure no critical task falls through the cracks.
+          Enforce ownership, track state transitions, and monitor SLA breaches in real-time. 
+          Sentinel ensures organization-wide accountability with complete audit logs.
         </p>
         <div style={heroActions}>
           {user ? (
@@ -48,12 +45,12 @@ export default function LandingPage() {
               to={user.role === "ADMIN" ? "/admin/dashboard" : "/member/tasks"}
               style={ctaPrimary}
             >
-              Enter Workspace
+              Go to Dashboard
             </Link>
           ) : (
             <>
-              <Link to="/register" style={ctaPrimary}>Create Organization</Link>
-              <Link to="/login" style={ctaSecondary}>Sign In to Account</Link>
+              <Link to="/register" style={ctaPrimary}>Register Organization</Link>
+              <Link to="/login" style={ctaSecondary}>Sign In</Link>
             </>
           )}
         </div>
@@ -61,58 +58,36 @@ export default function LandingPage() {
 
       {/* ─── FEATURES SECTION ─── */}
       <section id="features" style={featuresSection}>
-        <h2 style={sectionTitle}>Why Sentinel?</h2>
-        <p style={sectionSub}>Built to bring engineering discipline and SLA enforcement to operational workflows.</p>
+        <h2 style={sectionTitle}>System Features</h2>
+        <p style={sectionSub}>Engineered for structured operational workflows and SLA compliance.</p>
         
         <div style={featuresGrid}>
           <div style={featureCard}>
-            <div style={iconBox}>⏱️</div>
-            <h3 style={cardTitle}>SLA Countdown Timers</h3>
+            <h3 style={cardTitle}>SLA Management</h3>
             <p style={cardDesc}>
-              Acknowledge and Action deadlines count down live. Automatic escalation algorithms trigger if SLAs are breached.
+              Acknowledge and action deadlines count down automatically. Escalation workflows trigger when deadlines are missed.
             </p>
           </div>
 
           <div style={featureCard}>
-            <div style={iconBox}>🧾</div>
-            <h3 style={cardTitle}>Strict State Audits</h3>
+            <h3 style={cardTitle}>Task Audit Logs</h3>
             <p style={cardDesc}>
-              Every transition is logged with the target state, actor, action, and timestamp. A complete, unalterable audit log.
+              Every state transition tracks the target state, actor, action, and timestamp. Unalterable records of all updates.
             </p>
           </div>
 
           <div style={featureCard}>
-            <div style={iconBox}>👥</div>
             <h3 style={cardTitle}>Role-Based Dashboard</h3>
             <p style={cardDesc}>
-              Admins orchestrate tasks and monitor organizations; Members focus on acknowledging, starting, and completing work.
+              Administrators orchestrate and assign tasks; members focus on acknowledging, starting, and completing work.
             </p>
           </div>
 
           <div style={featureCard}>
-            <div style={iconBox}>📊</div>
-            <h3 style={cardTitle}>Interactive Kanban</h3>
+            <h3 style={cardTitle}>Structured State Transitions</h3>
             <p style={cardDesc}>
-              Drag-and-drop workspace layout styled with custom CSS metrics. Visually identifies overdue or escalated tasks.
+              Strict workflow enforcement (Open → Acknowledged → In Progress → Closed) ensures state machine consistency.
             </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── ARCHITECTURE SECTION ─── */}
-      <section id="architecture" style={archSection}>
-        <div style={archCard}>
-          <h2 style={archTitle}>Production-Style Architecture</h2>
-          <p style={archDesc}>
-            Sentinel is designed with modern software principles: RESTful APIs, Mongoose data normalization, 
-            JWT authentication sessions, and responsive frontends styled with custom CSS variables.
-          </p>
-          <div style={techRow}>
-            <span style={techBadge}>React</span>
-            <span style={techBadge}>NodeJS</span>
-            <span style={techBadge}>Express</span>
-            <span style={techBadge}>MongoDB</span>
-            <span style={techBadge}>WebSockets</span>
           </div>
         </div>
       </section>
@@ -120,52 +95,45 @@ export default function LandingPage() {
       {/* ─── FOOTER ─── */}
       <footer style={footerStyle}>
         <p style={footerText}>© {new Date().getFullYear()} Sentinel. All rights reserved.</p>
-        <p style={footerSub}>Built for high-performance engineering governance.</p>
       </footer>
     </div>
   );
 }
 
-/* ────────── STYLING SYSTEM ────────── */
+/* ────────── STYLING SYSTEM (Matching Application Variables) ────────── */
 
 const container = {
-  background: "#0B0F19",
-  color: "#F3F4F6",
+  background: "var(--color-bg-body)",
+  color: "var(--color-text-main)",
   minHeight: "100vh",
   fontFamily: "Inter, system-ui, sans-serif",
-  overflowX: "hidden",
+  overflowY: "auto",
+  transition: "background var(--transition-normal), color var(--transition-normal)",
 };
 
 const headerStyle = {
   display: "flex",
   justifyContent: "space-between",
   alignItems: "center",
-  padding: "20px 48px",
+  padding: "16px 40px",
   position: "sticky",
   top: 0,
-  background: "rgba(11, 15, 25, 0.8)",
-  backdropFilter: "blur(12px)",
+  background: "var(--color-bg-card)",
+  borderBottom: "1px solid var(--color-border)",
   zIndex: 100,
-  borderBottom: "1px solid rgba(255, 255, 255, 0.05)",
+  boxShadow: "var(--shadow-sm)",
 };
 
 const logoContainer = {
   display: "flex",
   alignItems: "center",
-  gap: 10,
-};
-
-const logoEmoji = {
-  fontSize: 22,
 };
 
 const logoText = {
   fontSize: 20,
   fontWeight: 800,
   letterSpacing: "-0.03em",
-  background: "linear-gradient(135deg, #60A5FA, #3B82F6)",
-  WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent",
+  color: "var(--color-primary)",
 };
 
 const navLinks = {
@@ -175,29 +143,30 @@ const navLinks = {
 };
 
 const navLink = {
-  color: "#9CA3AF",
+  color: "var(--color-text-muted)",
   textDecoration: "none",
   fontSize: 14,
   fontWeight: 500,
-  transition: "color 0.2s",
+  transition: "color var(--transition-fast)",
 };
 
 const primaryBtn = {
-  background: "#2563EB",
+  background: "var(--color-primary)",
   color: "#FFFFFF",
-  padding: "10px 18px",
-  borderRadius: 8,
+  padding: "8px 16px",
+  borderRadius: "var(--radius-md)",
   textDecoration: "none",
   fontSize: 14,
   fontWeight: 600,
-  transition: "opacity 0.2s",
+  transition: "opacity var(--transition-fast)",
 };
 
 const secondaryBtn = {
-  color: "#F3F4F6",
+  color: "var(--color-text-main)",
   textDecoration: "none",
   fontSize: 14,
   fontWeight: 600,
+  transition: "color var(--transition-fast)",
 };
 
 const heroSection = {
@@ -205,45 +174,40 @@ const heroSection = {
   flexDirection: "column",
   alignItems: "center",
   textAlign: "center",
-  padding: "100px 24px 80px",
+  padding: "80px 24px 60px",
   maxWidth: 800,
   margin: "0 auto",
 };
 
 const heroBadge = {
-  background: "rgba(59, 130, 246, 0.1)",
-  color: "#60A5FA",
+  background: "var(--color-bg-card)",
+  color: "var(--color-primary)",
   padding: "6px 14px",
   borderRadius: 99,
   fontSize: 12,
   fontWeight: 600,
   letterSpacing: "0.05em",
   textTransform: "uppercase",
-  marginBottom: 24,
-  border: "1px solid rgba(59, 130, 246, 0.2)",
+  marginBottom: 20,
+  border: "1px solid var(--color-border)",
+  boxShadow: "var(--shadow-sm)",
 };
 
 const heroTitle = {
-  fontSize: 54,
+  fontSize: 44,
   fontWeight: 800,
-  letterSpacing: "-0.02em",
-  lineHeight: 1.15,
+  letterSpacing: "-0.025em",
+  lineHeight: 1.2,
   margin: 0,
-  color: "#FFFFFF",
-};
-
-const gradientText = {
-  background: "linear-gradient(135deg, #60A5FA, #3B82F6, #1D4ED8)",
-  WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent",
+  color: "var(--color-text-main)",
 };
 
 const heroSub = {
-  fontSize: 18,
-  color: "#9CA3AF",
+  fontSize: 16,
+  color: "var(--color-text-muted)",
   lineHeight: 1.6,
-  marginTop: 20,
-  marginBottom: 36,
+  marginTop: 16,
+  marginBottom: 32,
 };
 
 const heroActions = {
@@ -252,141 +216,90 @@ const heroActions = {
 };
 
 const ctaPrimary = {
-  background: "#2563EB",
+  background: "var(--color-primary)",
   color: "#FFFFFF",
-  padding: "14px 28px",
-  borderRadius: 10,
+  padding: "12px 24px",
+  borderRadius: "var(--radius-lg)",
   textDecoration: "none",
   fontWeight: 600,
-  fontSize: 16,
-  boxShadow: "0 10px 20px rgba(37, 99, 235, 0.2)",
-  transition: "transform 0.2s, opacity 0.2s",
+  fontSize: 15,
+  boxShadow: "var(--shadow-md)",
+  transition: "opacity var(--transition-fast)",
 };
 
 const ctaSecondary = {
-  background: "transparent",
-  color: "#F3F4F6",
-  padding: "14px 28px",
-  borderRadius: 10,
+  background: "var(--color-bg-card)",
+  color: "var(--color-text-main)",
+  padding: "12px 24px",
+  borderRadius: "var(--radius-lg)",
   textDecoration: "none",
   fontWeight: 600,
-  fontSize: 16,
-  border: "1px solid rgba(255, 255, 255, 0.15)",
-  transition: "background 0.2s",
+  fontSize: 15,
+  border: "1px solid var(--color-border)",
+  boxShadow: "var(--shadow-sm)",
+  transition: "background var(--transition-fast)",
 };
 
 const featuresSection = {
-  padding: "80px 48px",
+  padding: "60px 40px",
   maxWidth: 1100,
   margin: "0 auto",
   textAlign: "center",
 };
 
 const sectionTitle = {
-  fontSize: 36,
+  fontSize: 28,
   fontWeight: 800,
   margin: 0,
+  color: "var(--color-text-main)",
 };
 
 const sectionSub = {
-  fontSize: 16,
-  color: "#9CA3AF",
-  marginTop: 10,
-  marginBottom: 48,
+  fontSize: 15,
+  color: "var(--color-text-muted)",
+  marginTop: 8,
+  marginBottom: 40,
 };
 
 const featuresGrid = {
   display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-  gap: 24,
+  gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+  gap: 20,
 };
 
 const featureCard = {
-  background: "rgba(255, 255, 255, 0.02)",
-  border: "1px solid rgba(255, 255, 255, 0.05)",
-  padding: 32,
-  borderRadius: 16,
+  background: "var(--color-bg-card)",
+  border: "1px solid var(--color-border)",
+  padding: 24,
+  borderRadius: "var(--radius-lg)",
   textAlign: "left",
-  transition: "transform 0.2s, border-color 0.2s",
-};
-
-const iconBox = {
-  fontSize: 28,
-  marginBottom: 16,
+  boxShadow: "var(--shadow-sm)",
 };
 
 const cardTitle = {
-  fontSize: 18,
+  fontSize: 16,
   fontWeight: 700,
-  margin: "0 0 10px 0",
+  margin: "0 0 8px 0",
+  color: "var(--color-text-main)",
 };
 
 const cardDesc = {
-  fontSize: 14,
-  color: "#9CA3AF",
+  fontSize: 13.5,
+  color: "var(--color-text-muted)",
   lineHeight: 1.5,
   margin: 0,
 };
 
-const archSection = {
-  padding: "40px 48px 80px",
-  maxWidth: 1100,
-  margin: "0 auto",
-};
-
-const archCard = {
-  background: "linear-gradient(135deg, rgba(37, 99, 235, 0.05), rgba(29, 78, 216, 0.02))",
-  border: "1px solid rgba(37, 99, 235, 0.15)",
-  padding: "48px 36px",
-  borderRadius: 24,
-  textAlign: "center",
-};
-
-const archTitle = {
-  fontSize: 28,
-  fontWeight: 800,
-  margin: 0,
-};
-
-const archDesc = {
-  fontSize: 16,
-  color: "#9CA3AF",
-  lineHeight: 1.6,
-  maxWidth: 700,
-  margin: "12px auto 28px",
-};
-
-const techRow = {
-  display: "flex",
-  justifyContent: "center",
-  gap: 12,
-  flexWrap: "wrap",
-};
-
-const techBadge = {
-  background: "rgba(255, 255, 255, 0.05)",
-  padding: "6px 14px",
-  borderRadius: 99,
-  fontSize: 13,
-  fontWeight: 500,
-  color: "#9CA3AF",
-};
-
 const footerStyle = {
-  padding: "48px 24px",
+  padding: "32px 24px",
   textAlign: "center",
-  borderTop: "1px solid rgba(255, 255, 255, 0.05)",
+  borderTop: "1px solid var(--color-border)",
+  background: "var(--color-bg-card)",
+  marginTop: 40,
 };
 
 const footerText = {
-  fontSize: 14,
-  color: "#6B7280",
-  margin: 0,
-};
-
-const footerSub = {
-  fontSize: 12,
-  color: "#4B5563",
-  marginTop: 6,
+  fontSize: 13,
+  color: "var(--color-text-muted)",
   margin: 0,
 };
