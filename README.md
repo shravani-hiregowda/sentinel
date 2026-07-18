@@ -158,7 +158,54 @@ sentinel/
 │   ├── api/
 │   └── App.jsx
 
-⚙️ Tech Stack
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js (v18 or higher)
+- npm
+
+### Installation & Run
+
+1. **Clone the repository** (if not already done).
+2. **Environment Variables**:
+   - Create a `.env` file in the `backend/` directory based on the `.env.example` file (or use the configured values in `sentinel/.env`).
+3. **Database Seeding**:
+   - Run the following commands to connect to MongoDB and seed the initial organization and users:
+     ```bash
+     cd backend
+     npm run seed
+     ```
+4. **Start the Backend Server**:
+   ```bash
+   cd backend
+   npm run dev
+   ```
+   The backend will run on `http://localhost:5000`.
+
+5. **Start the Frontend Client**:
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+   The frontend will run on `http://localhost:5173`.
+
+---
+
+## 🔑 Seeded Credentials
+
+Use the following credentials to log in:
+
+### 👤 Admin User
+- **Email**: `admin@sentinel.dev`
+- **Password**: `Admin@123`
+
+### 👥 Member User (Arjun)
+- **Email**: `arjun@sentinel.dev`
+- **Password**: `Member@123`
+
+---
+
+## ⚙️ Tech Stack
 
 Backend
 

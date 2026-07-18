@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema(
     // 🔐 ENTERPRISE SECURITY
     forcePasswordChange: {
       type: Boolean,
-      default: true,
+      default: false,
     },
 
     tokenVersion: {
