@@ -89,7 +89,7 @@ export default function CreateOrg() {
           </button>
         </form>
         <p style={footer}>
-          Already have an account? <Link to="/">Login here</Link>
+          Already have an account? <Link to="/login">Login here</Link>
         </p>
       </div>
     </div>

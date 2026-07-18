@@ -9,6 +9,7 @@ import AdminReportsPage from "./pages/AdminReportsPage";
 import MemberDashboard from "./pages/MemberDashboard";
 import ForcePasswordChange from "./pages/ForcePasswordChange";
 import CreateOrg from "./pages/CreateOrg";
+import LandingPage from "./pages/LandingPage";
 
 import ProtectedRoute from "./routes/ProtectedRoute";
 
@@ -75,20 +76,10 @@ export default function App() {
         }
       />
 
-      {/* ───────────── ROOT REDIRECT ───────────── */}
+      {/* ───────────── ROOT ───────────── */}
       <Route
         path="/"
-        element={
-          user ? (
-            user.role === "ADMIN" ? (
-              <Navigate to="/admin/dashboard" />
-            ) : (
-              <Navigate to="/member/tasks" />
-            )
-          ) : (
-            <Navigate to="/login" />
-          )
-        }
+        element={<LandingPage />}
       />
 
       {/* ───────────── FALLBACK ───────────── */}

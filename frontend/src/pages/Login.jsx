@@ -41,7 +41,9 @@ export default function Login() {
     <div style={page}>
       <div style={card}>
         {/* BRAND */}
-        <h1 style={title}>Sentinel</h1>
+        <h1 style={title}>
+          <Link to="/" style={{ textDecoration: "none", color: "inherit" }}>Sentinel</Link>
+        </h1>
         <p style={subtitle}>Secure Task Governance Platform</p>
 
         {/* ERROR */}
