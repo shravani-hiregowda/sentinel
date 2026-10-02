@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import connectDB from "../config/db.js";
 import User from "../models/User.js";
 import Organization from "../models/Organization.js";
+import Membership from "../models/Membership.js";
+import { ROLES } from "../enums/roles.js";
 
 dotenv.config();
 
@@ -23,7 +25,7 @@ const seedUsers = async () => {
     const hashedAdminPassword = await bcrypt.hash("Admin@123", 10);
     const hashedMemberPassword = await bcrypt.hash("Member@123", 10);
 
-    // ✅ Admin Upsert (Fixes missing password and orgId)
+    // Admin Upsert
     await User.updateOne(
       { email: "admin@sentinel.dev" },
       {
@@ -32,14 +34,27 @@ const seedUsers = async () => {
           name: "Admin",
           email: "admin@sentinel.dev",
           password: hashedAdminPassword,
-          role: "ADMIN",
+          role: ROLES.ADMIN,
           forcePasswordChange: false,
         },
       },
       { upsert: true }
     );
 
-    // ✅ Members Upsert
+    const adminUser = await User.findOne({ email: "admin@sentinel.dev" });
+    await Membership.updateOne(
+      { userId: adminUser._id, organizationId: org._id },
+      {
+        $set: {
+          role: ROLES.ADMIN,
+          status: "ACTIVE",
+        },
+        $setOnInsert: { joinedAt: new Date() },
+      },
+      { upsert: true }
+    );
+
+    // Members Upsert
     const members = [
       { name: "Arjun", email: "arjun@sentinel.dev" },
       { name: "Kavya", email: "kavya@sentinel.dev" },
@@ -55,15 +70,28 @@ const seedUsers = async () => {
             name: m.name,
             email: m.email,
             password: hashedMemberPassword,
-            role: "MEMBER",
+            role: ROLES.MEMBER,
             forcePasswordChange: false,
           },
         },
         { upsert: true }
       );
+
+      const memberUser = await User.findOne({ email: m.email });
+      await Membership.updateOne(
+        { userId: memberUser._id, organizationId: org._id },
+        {
+          $set: {
+            role: ROLES.MEMBER,
+            status: "ACTIVE",
+          },
+          $setOnInsert: { joinedAt: new Date() },
+        },
+        { upsert: true }
+      );
     }
 
-    console.log("✅ Users updated/seeded successfully with orgId");
+    console.log("✅ Users and Memberships updated/seeded successfully with orgId");
     process.exit(0);
   } catch (err) {
     console.error("❌ Seeding failed", err);
@@ -72,4 +100,3 @@ const seedUsers = async () => {
 };
 
 seedUsers();
-

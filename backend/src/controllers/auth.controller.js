@@ -2,6 +2,9 @@ import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
 import Organization from "../models/Organization.js";
+import Membership from "../models/Membership.js";
+import AuditLog from "../models/AuditLog.js";
+import { ROLES } from "../enums/roles.js";
 
 export const createOrg = async (req, res, next) => {
   try {
@@ -24,8 +27,26 @@ export const createOrg = async (req, res, next) => {
       name: adminName,
       email: adminEmail,
       password: hashedPassword,
-      role: "ADMIN",
+      role: ROLES.ADMIN,
       forcePasswordChange: false, // Root admin doesn't need force reset
+    });
+
+    // Create primary Membership record
+    await Membership.create({
+      userId: admin._id,
+      organizationId: org._id,
+      role: ROLES.ADMIN,
+      status: "ACTIVE",
+    });
+
+    // Audit org creation
+    await AuditLog.create({
+      orgId: org._id,
+      userId: admin._id,
+      action: "ORGANIZATION_CREATED",
+      meta: { orgName: org.name },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
     });
 
     res.status(201).json({ success: true, message: "Organization created successfully" });
@@ -52,7 +73,7 @@ export const login = async (req, res, next) => {
         tokenVersion: user.tokenVersion,
       },
       process.env.JWT_SECRET,
-      { expiresIn: "7d" }
+      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
     );
 
     res.json({

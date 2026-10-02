@@ -1,38 +1,85 @@
 import IORedis from "ioredis";
 
-let redisConnection = null;
+let redisClient = null;
 
+/**
+ * Returns configuration options for Redis / BullMQ connections.
+ * BullMQ requires maxRetriesPerRequest: null.
+ */
+export const getRedisConfig = () => {
+  const host = process.env.REDIS_HOST || "127.0.0.1";
+  const port = parseInt(process.env.REDIS_PORT || "6379", 10);
+  const password = process.env.REDIS_PASSWORD || undefined;
+
+  const config = {
+    host,
+    port,
+    maxRetriesPerRequest: null, // Required by BullMQ
+    enableReadyCheck: false,    // Required by BullMQ
+  };
+
+  if (password) {
+    config.password = password;
+  }
+
+  return config;
+};
+
+/**
+ * Creates and verifies a centralized Redis client connection.
+ * Fails clearly if Redis is required but unreachable.
+ */
 export const connectRedis = async () => {
+  if (redisClient && redisClient.status === "ready") {
+    return redisClient;
+  }
+
+  const config = getRedisConfig();
+
   try {
-    if (redisConnection) {
-      return redisConnection; // prevent duplicate connections
-    }
+    redisClient = new IORedis(config);
 
-    redisConnection = new IORedis({
-      host: process.env.REDIS_HOST,
-      port: process.env.REDIS_PORT,
-      maxRetriesPerRequest: null, // required for BullMQ
-      enableReadyCheck: false,    // required for BullMQ
+    redisClient.on("connect", () => {
+      console.log(`✅ Redis connected to ${config.host}:${config.port}`);
     });
 
-    redisConnection.on("connect", () => {
-      console.log("✅ Redis connected");
+    redisClient.on("error", (err) => {
+      console.error("❌ Redis connection error:", err.message);
     });
 
-    redisConnection.on("error", (err) => {
-      console.error("❌ Redis connection error", err);
-    });
-
-    return redisConnection;
+    // Verify connectivity with PING
+    await redisClient.ping();
+    return redisClient;
   } catch (error) {
-    console.error("❌ Redis initialization failed");
-    throw error;
+    console.error("❌ Redis initialization failed:", error.message);
+    throw new Error(`Failed to connect to Redis at ${config.host}:${config.port}: ${error.message}`);
   }
 };
 
+/**
+ * Retrieves the active Redis client.
+ * Throws an error if Redis is not yet connected.
+ */
 export const getRedisConnection = () => {
-  if (!redisConnection) {
-    throw new Error("Redis not connected yet");
+  if (!redisClient) {
+    throw new Error("Redis client is not connected. Call connectRedis() first.");
   }
-  return redisConnection;
+  return redisClient;
+};
+
+/**
+ * Gracefully closes the Redis connection (used during worker/server shutdown and tests).
+ */
+export const closeRedis = async () => {
+  if (redisClient) {
+    await redisClient.quit();
+    redisClient = null;
+  }
+};
+
+export default {
+  getRedisConfig,
+  connectRedis,
+  getRedisConnection,
+  closeRedis,
 };

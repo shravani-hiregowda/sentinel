@@ -1,52 +1,49 @@
 import React from "react";
 
+const colorMap = {
+  OPEN: "#2563EB",
+  ACKNOWLEDGED: "#F59E0B",
+  IN_PROGRESS: "#0EA5E9",
+  ESCALATED: "#DC2626",
+  CLOSED: "#16A34A",
+};
+
+function StatusPill({ state }) {
+  return (
+    <span
+      style={{
+        padding: "6px 12px",
+        borderRadius: 999,
+        background: (colorMap[state] || "#64748B") + "20",
+        color: colorMap[state] || "#64748B",
+        fontWeight: 600,
+        fontSize: 12,
+      }}
+    >
+      {state}
+    </span>
+  );
+}
+
 export default function TaskDetailModal({
   open,
   onClose,
   data,
-  members = [],
-  onTaskUpdated,
 }) {
   if (!open || !data?.task) return null;
 
   const task = data?.task || {};
 
-    const timeline =
-      data?.timeline ||
-      data?.transitions ||
-      data?.data?.timeline ||
-      [];
-
+  const timeline =
+    data?.timeline ||
+    data?.transitions ||
+    data?.data?.timeline ||
+    [];
 
   const formatDate = (value) => {
     if (!value) return "—";
     const d = new Date(value);
     return isNaN(d.getTime()) ? "—" : d.toLocaleString();
-  };
-
-  const StatusPill = ({ state }) => {
-    const colorMap = {
-      OPEN: "#2563EB",
-      ACKNOWLEDGED: "#F59E0B",
-      IN_PROGRESS: "#0EA5E9",
-      ESCALATED: "#DC2626",
-      CLOSED: "#16A34A",
-    };
-
-    return (
-      <span
-        style={{
-          padding: "6px 12px",
-          borderRadius: 999,
-          background: colorMap[state] + "20",
-          color: colorMap[state],
-          fontWeight: 600,
-          fontSize: 12,
-        }}
-      >
-        {state}
-      </span>
-    );
   };
 
   return (

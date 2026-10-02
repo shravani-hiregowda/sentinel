@@ -1,4 +1,3 @@
-import { theme } from "./theme";
 
 export default function Button({ children, variant = "primary", ...props }) {
   const styles = {

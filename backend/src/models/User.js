@@ -1,8 +1,14 @@
 import mongoose from "mongoose";
+import { ALL_ROLES, ROLES } from "../enums/roles.js";
 
 const userSchema = new mongoose.Schema(
   {
-    orgId: { type: mongoose.Schema.Types.ObjectId, ref: "Organization", required: true },
+    orgId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Organization",
+      required: true,
+      index: true,
+    },
 
     name: { type: String, required: true, trim: true },
 
@@ -27,7 +33,8 @@ const userSchema = new mongoose.Schema(
 
     role: {
       type: String,
-      enum: ["ADMIN", "MEMBER"],
+      enum: ALL_ROLES,
+      default: ROLES.MEMBER,
       required: true,
     },
 
@@ -49,5 +56,10 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Indexes justified by query patterns:
+// 1. Finding members/admins by tenant: User.find({ orgId, role, isActive: true })
+userSchema.index({ orgId: 1, role: 1 });
+userSchema.index({ orgId: 1, isActive: 1 });
 
 export default mongoose.model("User", userSchema);

@@ -1,24 +1,39 @@
-# Use official Node.js base image (Alpine for a lightweight image)
-FROM node:20-alpine
+# ==============================================================================
+# Sentinel Backend Production Dockerfile (Multi-stage, Minimal, Non-Root)
+# ==============================================================================
 
-# Set working directory
+# Stage 1: Dependency resolution and production prune
+FROM node:20-alpine AS dependencies
 WORKDIR /app
 
-# Copy package files
+# Install build dependencies if needed (e.g., for native modules like bcrypt)
+RUN apk add --no-cache python3 make g++
+
 COPY package*.json ./
+RUN npm ci --omit=dev && npm cache clean --force
 
-# Install dependencies using npm ci for consistency and speed
-RUN npm ci --omit=dev
+# Stage 2: Production runtime image
+FROM node:20-alpine AS runner
+WORKDIR /app
 
-# Copy the rest of the application
-COPY . .
+# Ensure security: Set production environment
+ENV NODE_ENV=production
+ENV PORT=5000
 
-# Expose the API server port
+# Install curl for container health checks
+RUN apk add --no-cache curl
+
+# Copy production node_modules from dependencies stage
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY package*.json ./
+COPY src/ ./src/
+
+# Security: Run as non-root unprivileged user
+RUN chown -R node:node /app
+USER node
+
+# Expose API port
 EXPOSE 5000
 
-# Set default environment variables (can be overridden in docker-compose.yml)
-ENV PORT=5000
-ENV NODE_ENV=production
-
-# Run the app
-CMD ["npm", "start"]
+# Default CMD runs the API server. Worker containers override this with ["node", "src/workers/escalation.worker.js"]
+CMD ["node", "src/server.js"]

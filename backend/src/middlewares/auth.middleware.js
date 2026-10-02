@@ -1,7 +1,14 @@
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { adminOnly as roleAdminOnly } from "./role.middleware.js";
 
-/* ───────────── AUTH PROTECT ───────────── */
+/**
+ * Authentication Middleware
+ * "Who is this user?"
+ *
+ * Verifies JWT signature, verifies expiration, and checks that user is active.
+ * Sets req.user upon successful authentication.
+ */
 export const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
@@ -25,9 +32,19 @@ export const protect = async (req, res, next) => {
       });
     }
 
+    // Check tokenVersion if user changed password
+    if (decoded.tokenVersion !== undefined && user.tokenVersion !== undefined) {
+      if (decoded.tokenVersion !== user.tokenVersion) {
+        return res.status(401).json({
+          success: false,
+          message: "Session expired, please log in again",
+        });
+      }
+    }
+
     req.user = user;
     next();
-  } catch (err) {
+  } catch {
     return res.status(401).json({
       success: false,
       message: "Not authorized, token invalid",
@@ -35,13 +52,8 @@ export const protect = async (req, res, next) => {
   }
 };
 
-/* ───────────── ADMIN ONLY ───────────── */
-export const adminOnly = (req, res, next) => {
-  if (!req.user || req.user.role !== "ADMIN") {
-    return res.status(403).json({
-      success: false,
-      message: "Admin access only",
-    });
-  }
-  next();
-};
+/**
+ * Re-export adminOnly for backward compatibility.
+ * Prefer importing from role.middleware.js for new endpoints.
+ */
+export const adminOnly = roleAdminOnly;

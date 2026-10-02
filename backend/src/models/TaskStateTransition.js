@@ -6,12 +6,14 @@ const taskStateTransitionSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Organization",
       required: true,
+      index: true,
     },
 
     task: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Task",
       required: true,
+      index: true,
     },
 
     fromState: {
@@ -26,7 +28,7 @@ const taskStateTransitionSchema = new mongoose.Schema(
 
     triggeredBy: {
       type: String,
-      enum: ["USER", "SYSTEM"],
+      enum: ["USER", "SYSTEM", "ADMIN"],
       required: true,
     },
 
@@ -40,6 +42,13 @@ const taskStateTransitionSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+// Indexes justified by actual query patterns:
+// 1. Task timeline queries: TaskStateTransition.find({ task: taskId, orgId }).sort({ createdAt: 1 })
+taskStateTransitionSchema.index({ orgId: 1, task: 1, createdAt: 1 });
+
+// 2. Activity feed queries: TaskStateTransition.find({ orgId }).sort({ createdAt: -1 })
+taskStateTransitionSchema.index({ orgId: 1, createdAt: -1 });
 
 const TaskStateTransition = mongoose.model(
   "TaskStateTransition",

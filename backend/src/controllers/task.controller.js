@@ -1,10 +1,19 @@
 import Task from "../models/Task.js";
 import User from "../models/User.js";
-import { logStateTransition } from "../services/stateTransition.service.js";
 import TaskStateTransition from "../models/TaskStateTransition.js";
+import { transitionTask } from "../services/taskStateMachine.service.js";
+import { scheduleTaskEscalations } from "../queues/escalation.queue.js";
+import { TASK_STATES } from "../enums/taskStates.js";
 import { getIo } from "../config/socket.js";
 import { sendSMS } from "../services/twilio.service.js";
+import { recordTaskCreated } from "../metrics/metrics.js";
+import { invalidateDashboardCache } from "../services/cache.service.js";
 
+
+/**
+ * Create a new task (Admin only)
+ * Initial state defaults to TASK_STATES.OPEN
+ */
 export const createTask = async (req, res, next) => {
   try {
     const {
@@ -21,8 +30,7 @@ export const createTask = async (req, res, next) => {
       throw err;
     }
 
-    const admin = req.user;
-    const orgId = admin.orgId;
+    const orgId = req.orgId;
 
     const owner = await User.findOne({ _id: ownerId, orgId });
     if (!owner || !owner.isActive) {
@@ -35,16 +43,54 @@ export const createTask = async (req, res, next) => {
       orgId,
       title,
       description,
+      state: TASK_STATES.OPEN, // Explicit initial state
       owner: owner._id,
       ackDeadline,
       actionDeadline,
-      createdBy: admin._id,
+      createdBy: req.user._id,
     });
 
-    getIo().emit("task_created", { task });
+    try {
+      const io = getIo();
+      if (io) {
+        io.to(`org:${orgId.toString()}`).emit("task_created", { task });
+        io.emit("task_created", { task });
+      }
+    } catch {
+      // Socket optional
+    }
+
+    // Invalidate tenant dashboard cache
+    try {
+      await invalidateDashboardCache(orgId);
+    } catch {
+      // Cache invalidation failure should not abort task creation
+    }
+
+    // Schedule BullMQ SLA escalation delayed jobs (ACK & Action)
+    await scheduleTaskEscalations(task);
+
+    // Record business metric & structured log
+    try {
+      recordTaskCreated();
+    } catch {
+      // Non-blocking
+    }
+
+    if (req.logger) {
+      req.logger.info("Task successfully created", {
+        event: "task.created",
+        taskId: task._id.toString(),
+        orgId: orgId.toString(),
+        ownerId: owner._id.toString(),
+      });
+    }
 
     if (owner.phone) {
-      sendSMS(owner.phone, `Sentinel: You have been assigned a new task: "${task.title}". Please acknowledge by ${new Date(task.ackDeadline).toLocaleString()}.`);
+      sendSMS(
+        owner.phone,
+        `Sentinel: You have been assigned a new task: "${task.title}". Please acknowledge by ${new Date(task.ackDeadline).toLocaleString()}.`
+      );
     }
 
     res.status(201).json({
@@ -54,21 +100,20 @@ export const createTask = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+
 };
 
+/**
+ * Acknowledge a task (Owner only)
+ * Transitions: OPEN -> ACKNOWLEDGED
+ */
 export const acknowledgeTask = async (req, res, next) => {
   try {
     const taskId = req.params.id;
-
-    // ✅ After JWT integration
     const user = req.user;
-    if (!user) {
-      const err = new Error("Not authorized");
-      err.statusCode = 401;
-      throw err;
-    }
+    const orgId = req.orgId;
 
-    const task = await Task.findOne({ _id: taskId, orgId: user.orgId });
+    const task = await Task.findOne({ _id: taskId, orgId });
     if (!task) {
       const err = new Error("Task not found");
       err.statusCode = 404;
@@ -78,12 +123,6 @@ export const acknowledgeTask = async (req, res, next) => {
     if (task.owner.toString() !== user._id.toString()) {
       const err = new Error("You are not the task owner");
       err.statusCode = 403;
-      throw err;
-    }
-
-    if (task.state !== "OPEN") {
-      const err = new Error("Task cannot be acknowledged in current state");
-      err.statusCode = 409;
       throw err;
     }
 
@@ -93,156 +132,118 @@ export const acknowledgeTask = async (req, res, next) => {
       throw err;
     }
 
-    const previousState = task.state;
-
-    task.state = "ACKNOWLEDGED";
-    await task.save();
-
-    await logStateTransition({
-      taskId: task._id,
-      fromState: previousState,
-      toState: "ACKNOWLEDGED",
+    // Centrally managed state machine transition
+    const { task: updatedTask } = await transitionTask({
+      task,
+      toState: TASK_STATES.ACKNOWLEDGED,
+      actor: user,
       triggeredBy: "USER",
-      actorId: user._id,
-      orgId: user.orgId,
+      orgId,
     });
-
-    getIo().emit("task_updated", { task, transition: "ACKNOWLEDGED" });
 
     res.json({
       success: true,
       message: "Task acknowledged",
-      task,
+      task: updatedTask,
     });
   } catch (error) {
     next(error);
   }
 };
 
-
-export const completeTask = async (req, res, next) => {
-  try {
-    const taskId = req.params.id;
-
-    const user = req.user;
-    if (!user) {
-      const err = new Error("Not authorized");
-      err.statusCode = 401;
-      throw err;
-    }
-
-    const task = await Task.findOne({ _id: taskId, orgId: user.orgId });
-    if (!task) {
-      const err = new Error("Task not found");
-      err.statusCode = 404;
-      throw err;
-    }
-
-    // ✅ Only owner can complete
-    if (task.owner.toString() !== user._id.toString()) {
-      const err = new Error("You are not the task owner");
-      err.statusCode = 403;
-      throw err;
-    }
-
-    // ✅ Only allowed states for completion
-    if (!["ACKNOWLEDGED", "IN_PROGRESS"].includes(task.state)) {
-      const err = new Error("Task cannot be completed in current state");
-      err.statusCode = 409;
-      throw err;
-    }
-
-    const prevState = task.state;
-
-    // ✅ Close task
-    task.state = "CLOSED";
-    await task.save();
-
-    // ✅ Log transition
-    await logStateTransition({
-      taskId: task._id,
-      fromState: prevState,
-      toState: "CLOSED",
-      triggeredBy: "USER",
-      actorId: user._id,
-      orgId: user.orgId,
-    });
-
-    getIo().emit("task_updated", { task, transition: "CLOSED" });
-
-    res.status(200).json({
-      success: true,
-      message: "Task completed successfully",
-      task,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
+/**
+ * Start working on a task (Owner only)
+ * Transitions: ACKNOWLEDGED -> IN_PROGRESS
+ */
 export const startTask = async (req, res, next) => {
   try {
     const taskId = req.params.id;
-
     const user = req.user;
-    if (!user) {
-      const err = new Error("Not authorized");
-      err.statusCode = 401;
-      throw err;
-    }
+    const orgId = req.orgId;
 
-    const task = await Task.findOne({ _id: taskId, orgId: user.orgId });
+    const task = await Task.findOne({ _id: taskId, orgId });
     if (!task) {
       const err = new Error("Task not found");
       err.statusCode = 404;
       throw err;
     }
 
-    // Only owner can start
     if (task.owner.toString() !== user._id.toString()) {
       const err = new Error("You are not the task owner");
       err.statusCode = 403;
       throw err;
     }
 
-    // Only allow start from ACKNOWLEDGED state
-    if (task.state !== "ACKNOWLEDGED") {
-      const err = new Error("Task can only be started after acknowledgment");
-      err.statusCode = 409;
-      throw err;
-    }
-
-    const prevState = task.state;
-
-    task.state = "IN_PROGRESS";
-    await task.save();
-
-    await logStateTransition({
-      taskId: task._id,
-      fromState: prevState,
-      toState: "IN_PROGRESS",
+    // Centrally managed state machine transition
+    const { task: updatedTask } = await transitionTask({
+      task,
+      toState: TASK_STATES.IN_PROGRESS,
+      actor: user,
       triggeredBy: "USER",
-      actorId: user._id,
-      orgId: user.orgId,
+      orgId,
     });
-
-    getIo().emit("task_updated", { task, transition: "IN_PROGRESS" });
 
     res.status(200).json({
       success: true,
       message: "Task marked as in progress",
-      task,
+      task: updatedTask,
     });
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * Complete a task (Owner only)
+ * Transitions: ACKNOWLEDGED | IN_PROGRESS -> CLOSED
+ */
+export const completeTask = async (req, res, next) => {
+  try {
+    const taskId = req.params.id;
+    const user = req.user;
+    const orgId = req.orgId;
+
+    const task = await Task.findOne({ _id: taskId, orgId });
+    if (!task) {
+      const err = new Error("Task not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (task.owner.toString() !== user._id.toString()) {
+      const err = new Error("You are not the task owner");
+      err.statusCode = 403;
+      throw err;
+    }
+
+    // Centrally managed state machine transition
+    const { task: updatedTask } = await transitionTask({
+      task,
+      toState: TASK_STATES.CLOSED,
+      actor: user,
+      triggeredBy: "USER",
+      orgId,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Task completed successfully",
+      task: updatedTask,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get audit timeline for a task
+ */
 export const getTaskTimeline = async (req, res, next) => {
   try {
     const taskId = req.params.id;
+    const orgId = req.orgId;
 
-    const task = await Task.findOne({ _id: taskId, orgId: req.user.orgId })
+    const task = await Task.findOne({ _id: taskId, orgId })
       .populate("owner", "name email role")
       .populate("createdBy", "name email role");
 
@@ -252,7 +253,7 @@ export const getTaskTimeline = async (req, res, next) => {
       throw err;
     }
 
-    const transitions = await TaskStateTransition.find({ task: taskId, orgId: req.user.orgId })
+    const transitions = await TaskStateTransition.find({ task: taskId, orgId })
       .populate("actor", "name email role")
       .sort({ createdAt: 1 });
 
@@ -266,19 +267,37 @@ export const getTaskTimeline = async (req, res, next) => {
   }
 };
 
+/**
+ * Get tasks assigned to a specific owner
+ */
 export const getTasksByOwner = async (req, res, next) => {
   try {
     const ownerId = req.params.ownerId;
+    const orgId = req.orgId;
 
-    // ✅ Only admin or same user can view
+    // Authorization: only admin or the user themselves can view
     if (req.user.role !== "ADMIN" && req.user._id.toString() !== ownerId) {
       const err = new Error("Forbidden: cannot access other user's tasks");
       err.statusCode = 403;
       throw err;
     }
 
-    const tasks = await Task.find({ owner: ownerId, orgId: req.user.orgId })
+    // Verify owner belongs to same tenant
+    const targetOwner = await User.findOne({ _id: ownerId, orgId });
+    if (!targetOwner) {
+      const err = new Error("User not found");
+      err.statusCode = 404;
+      throw err;
+    }
+
+    const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
+    const page = Math.max(1, parseInt(req.query.page || "1", 10));
+    const skip = (page - 1) * limit;
+
+    const tasks = await Task.find({ owner: ownerId, orgId })
       .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit)
       .populate("owner", "name email role")
       .populate("createdBy", "name email role");
 
@@ -292,14 +311,23 @@ export const getTasksByOwner = async (req, res, next) => {
   }
 };
 
+/**
+ * Get tasks assigned to the currently authenticated user
+ */
 export const getMyTasks = async (req, res, next) => {
   try {
-    const userId = req.user.id; // 🔥 FROM JWT
-    const orgId = req.user.orgId;
+    const userId = req.user._id;
+    const orgId = req.orgId;
+
+    const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
+    const page = Math.max(1, parseInt(req.query.page || "1", 10));
+    const skip = (page - 1) * limit;
 
     const tasks = await Task.find({ owner: userId, orgId })
       .populate("owner", "name email")
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .skip(skip)
+      .limit(limit);
 
     res.json({
       success: true,
@@ -309,5 +337,3 @@ export const getMyTasks = async (req, res, next) => {
     next(err);
   }
 };
-
-

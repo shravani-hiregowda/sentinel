@@ -1,56 +1,123 @@
 version: '3.8'
 
+# ==============================================================================
+# Sentinel Production-Like Multi-Tenant Stack
+# Services:
+#   - mongodb  : Primary document store with native ping healthcheck
+#   - redis    : Centralized state & BullMQ distributed queue with ping healthcheck
+#   - api      : Express REST & WebSocket API with /ready healthcheck
+#   - worker   : BullMQ SLA Escalation Worker (independently scalable)
+#   - frontend : Nginx-hosted production React SPA
+# ==============================================================================
+
 services:
-  # Redis service (Required for BullMQ queue/jobs processing in backend)
+  mongodb:
+    image: mongo:7.0
+    container_name: sentinel-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   redis:
     image: redis:7-alpine
     container_name: sentinel-redis
+    restart: unless-stopped
     ports:
       - "6379:6379"
     command: redis-server --save 60 1 --loglevel warning
     volumes:
       - redis-data:/data
-    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
-  # Express Backend Service
-  backend:
+  api:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: sentinel-backend
+    container_name: sentinel-api
+    restart: unless-stopped
+    command: ["node", "src/server.js"]
     ports:
       - "5000:5000"
     environment:
       - PORT=5000
-      # By default, use local MongoDB container. Can be overridden in host shell/env to use MongoDB Atlas
-      - MONGO_URI=${MONGO_URI}
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://mongodb:27017/sentinel
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET}
+      - JWT_SECRET=${JWT_SECRET:-production_change_me_sentinel_secret_32char_min}
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-7d}
-      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
-      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
-      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - CLIENT_ORIGIN=${CLIENT_ORIGIN:-http://localhost:3000}
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX=200
+      - AUTH_RATE_LIMIT_MAX=20
+      - LOG_LEVEL=info
+      - SHUTDOWN_TIMEOUT_MS=10000
     depends_on:
-      - redis
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
-    restart: always
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sentinel-worker
+    restart: unless-stopped
+    command: ["node", "src/workers/escalation.worker.js"]
+    environment:
+      - NODE_ENV=production
+      - MONGO_URI=mongodb://mongodb:27017/sentinel
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - JWT_SECRET=${JWT_SECRET:-production_change_me_sentinel_secret_32char_min}
+      - LOG_LEVEL=info
+      - SHUTDOWN_TIMEOUT_MS=10000
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
-  # React Frontend Service (Served via high-performance Nginx container)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # Build-time argument for Vite to communicate with the backend on host's port 5000
-        - VITE_API_URL=http://16.176.13.93:5000
+        - VITE_API_URL=${VITE_API_URL:-http://localhost:5000}
     container_name: sentinel-frontend
+    restart: unless-stopped
     ports:
       - "3000:80"
     depends_on:
-      - backend
-    restart: always
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:80/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
 
 volumes:
+  mongodb-data:
   redis-data:

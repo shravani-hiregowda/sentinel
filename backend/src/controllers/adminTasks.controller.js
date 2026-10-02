@@ -1,25 +1,37 @@
 import Task from "../models/Task.js";
-import { logStateTransition } from "../services/stateTransition.service.js";
-import { getIo } from "../config/socket.js";
+import { transitionTask } from "../services/taskStateMachine.service.js";
 
+/**
+ * List tasks for Admin with search, filter, date range, and pagination
+ * Strictly scoped to req.orgId
+ */
 export const listTasksForAdmin = async (req, res, next) => {
   try {
-    const { q, state, ownerId, overdue, page = 1, limit = 10, startDate, endDate } = req.query;
-    const orgId = req.user.orgId;
+    const {
+      q,
+      state,
+      ownerId,
+      overdue,
+      page = 1,
+      limit = 10,
+      startDate,
+      endDate,
+    } = req.query;
 
+    const orgId = req.orgId;
     const filter = { orgId };
 
-    // ✅ Filter by state (can be array or string)
+    // Filter by state (can be array or string)
     if (state) {
       if (Array.isArray(state)) filter.state = { $in: state };
       else if (state.includes(",")) filter.state = { $in: state.split(",") };
       else filter.state = state;
     }
 
-    // ✅ Filter by owner
+    // Filter by owner
     if (ownerId) filter.owner = ownerId;
 
-    // ✅ Search by title/description
+    // Search by title/description
     if (q) {
       filter.$or = [
         { title: { $regex: q, $options: "i" } },
@@ -27,16 +39,19 @@ export const listTasksForAdmin = async (req, res, next) => {
       ];
     }
 
-    // ✅ Overdue only filter
+    // Overdue only filter
     if (overdue === "true") {
       const now = new Date();
       filter.$or = [
         { state: "OPEN", ackDeadline: { $lt: now } },
-        { state: { $in: ["ACKNOWLEDGED", "IN_PROGRESS"] }, actionDeadline: { $lt: now } },
+        {
+          state: { $in: ["ACKNOWLEDGED", "IN_PROGRESS"] },
+          actionDeadline: { $lt: now },
+        },
       ];
     }
 
-    // ✅ Date Range Filtering
+    // Date Range Filtering
     if (startDate || endDate) {
       filter.createdAt = {};
       if (startDate) filter.createdAt.$gte = new Date(startDate);
@@ -69,12 +84,16 @@ export const listTasksForAdmin = async (req, res, next) => {
   }
 };
 
+/**
+ * Admin update task state
+ * Enforces centralized state machine validation and tenant isolation
+ */
 export const updateTaskStateAdmin = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { state } = req.body;
     const user = req.user;
-    const orgId = user.orgId;
+    const orgId = req.orgId;
 
     const task = await Task.findOne({ _id: id, orgId });
     if (!task) {
@@ -83,22 +102,16 @@ export const updateTaskStateAdmin = async (req, res, next) => {
       throw err;
     }
 
-    const prevState = task.state;
-    task.state = state;
-    await task.save();
-
-    await logStateTransition({
-      taskId: task._id,
-      fromState: prevState,
+    // Route state transition through centralized state machine
+    const { task: updatedTask } = await transitionTask({
+      task,
       toState: state,
+      actor: user,
       triggeredBy: "ADMIN",
-      actorId: user._id,
-      orgId: orgId,
+      orgId,
     });
 
-    getIo().emit("task_updated", { task, transition: state });
-
-    res.json({ success: true, task });
+    res.json({ success: true, task: updatedTask });
   } catch (error) {
     next(error);
   }

@@ -1,9 +1,10 @@
 import bcrypt from "bcryptjs";
 import User from "../models/User.js";
+import Membership from "../models/Membership.js";
 import AuditLog from "../models/AuditLog.js";
+import { ROLES } from "../enums/roles.js";
 
 export const createMember = async (req, res, next) => {
-  console.log("🔥 CREATE MEMBER HIT", req.body);
   try {
     const { name, email, password, phone } = req.body;
 
@@ -23,12 +24,30 @@ export const createMember = async (req, res, next) => {
     const hashed = await bcrypt.hash(password, 10);
 
     const user = await User.create({
-      orgId: req.user.orgId,
+      orgId: req.orgId,
       name,
       email,
       password: hashed,
       phone,
-      role: "MEMBER",
+      role: ROLES.MEMBER,
+    });
+
+    // Create Membership record linking User to Organization
+    await Membership.create({
+      userId: user._id,
+      organizationId: req.orgId,
+      role: ROLES.MEMBER,
+      status: "ACTIVE",
+    });
+
+    // Audit member creation
+    await AuditLog.create({
+      orgId: req.orgId,
+      userId: req.user._id,
+      action: "MEMBER_CREATED",
+      meta: { newMemberId: user._id, email: user.email },
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
     });
 
     res.status(201).json({
@@ -47,27 +66,31 @@ export const createMember = async (req, res, next) => {
   }
 };
 
-export const changePassword = async (req, res) => {
-  const { oldPassword, newPassword } = req.body;
+export const changePassword = async (req, res, next) => {
+  try {
+    const { oldPassword, newPassword } = req.body;
 
-  const user = await User.findById(req.user.id).select("+password");
-  if (!user) return res.status(404).json({ message: "User not found" });
+    const user = await User.findOne({ _id: req.user._id, orgId: req.orgId }).select("+password");
+    if (!user) return res.status(404).json({ message: "User not found" });
 
-  const ok = await bcrypt.compare(oldPassword, user.password);
-  if (!ok) return res.status(401).json({ message: "Wrong password" });
+    const ok = await bcrypt.compare(oldPassword, user.password);
+    if (!ok) return res.status(401).json({ message: "Wrong password" });
 
-  user.password = await bcrypt.hash(newPassword, 10);
-  user.forcePasswordChange = false;
-  user.tokenVersion += 1; // 🔥 revoke all sessions
-  await user.save();
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.forcePasswordChange = false;
+    user.tokenVersion += 1; // revoke existing sessions
+    await user.save();
 
-  await AuditLog.create({
-    orgId: user.orgId,
-    userId: user._id,
-    action: "PASSWORD_CHANGED",
-    ip: req.ip,
-    userAgent: req.headers["user-agent"],
-  });
+    await AuditLog.create({
+      orgId: req.orgId,
+      userId: user._id,
+      action: "PASSWORD_CHANGED",
+      ip: req.ip,
+      userAgent: req.headers["user-agent"],
+    });
 
-  res.json({ success: true, message: "Password updated" });
+    res.json({ success: true, message: "Password updated" });
+  } catch (err) {
+    next(err);
+  }
 };

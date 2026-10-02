@@ -1,54 +1,97 @@
 import Task from "../models/Task.js";
 import User from "../models/User.js";
 import TaskStateTransition from "../models/TaskStateTransition.js";
+import { TASK_STATES } from "../enums/taskStates.js";
+import {
+  getTenantCache,
+  setTenantCache,
+} from "../services/cache.service.js";
 
+const DASHBOARD_CACHE_TTL_SEC = 60; // 60s sensible TTL with explicit event-driven invalidation
+
+/**
+ * Get dashboard summary metrics for the tenant.
+ * Uses tenant-isolated Redis cache with DB fallback.
+ * Queries MongoDB in parallel using indexed compound counts.
+ */
 export const getDashboardSummary = async (req, res, next) => {
   try {
-    const orgId = req.user.orgId;
+    const orgId = req.orgId;
+
+    // 1. Check tenant cache
+    const cacheKey = "dashboard:summary";
+    const cachedSummary = await getTenantCache(orgId, cacheKey);
+    if (cachedSummary) {
+      return res.json({
+        success: true,
+        summary: cachedSummary,
+        source: "cache",
+      });
+    }
+
+    // 2. Fetch metrics concurrently in parallel via Promise.all
     const now = new Date();
+    const [
+      open,
+      acknowledged,
+      inProgress,
+      escalated,
+      closed,
+      overdueAck,
+      overdueAction,
+    ] = await Promise.all([
+      Task.countDocuments({ orgId, state: TASK_STATES.OPEN }),
+      Task.countDocuments({ orgId, state: TASK_STATES.ACKNOWLEDGED }),
+      Task.countDocuments({ orgId, state: TASK_STATES.IN_PROGRESS }),
+      Task.countDocuments({ orgId, state: TASK_STATES.ESCALATED }),
+      Task.countDocuments({ orgId, state: TASK_STATES.CLOSED }),
+      Task.countDocuments({
+        orgId,
+        state: TASK_STATES.OPEN,
+        ackDeadline: { $lt: now },
+      }),
+      Task.countDocuments({
+        orgId,
+        state: { $in: [TASK_STATES.ACKNOWLEDGED, TASK_STATES.IN_PROGRESS] },
+        actionDeadline: { $lt: now },
+      }),
+    ]);
 
-    const open = await Task.countDocuments({ orgId, state: "OPEN" });
-    const acknowledged = await Task.countDocuments({ orgId, state: "ACKNOWLEDGED" });
-    const inProgress = await Task.countDocuments({ orgId, state: "IN_PROGRESS" });
-    const escalated = await Task.countDocuments({ orgId, state: "ESCALATED" });
-    const closed = await Task.countDocuments({ orgId, state: "CLOSED" });
+    const summary = {
+      open,
+      acknowledged,
+      inProgress,
+      escalated,
+      closed,
+      overdueAck,
+      overdueAction,
+    };
 
-    const overdueAck = await Task.countDocuments({
-      orgId,
-      state: "OPEN",
-      ackDeadline: { $lt: now },
-    });
-
-    const overdueAction = await Task.countDocuments({
-      orgId,
-      state: { $in: ["ACKNOWLEDGED", "IN_PROGRESS"] },
-      actionDeadline: { $lt: now },
-    });
+    // 3. Populate tenant cache
+    await setTenantCache(orgId, cacheKey, summary, DASHBOARD_CACHE_TTL_SEC);
 
     res.json({
       success: true,
-      summary: {
-        open,
-        acknowledged,
-        inProgress,
-        escalated,
-        closed,
-        overdueAck,
-        overdueAction,
-      },
+      summary,
     });
   } catch (err) {
     next(err);
   }
 };
 
+/**
+ * Get escalated tasks for tenant with safe pagination/bounding.
+ */
 export const getEscalatedTasks = async (req, res, next) => {
   try {
-    const orgId = req.user.orgId;
-    const tasks = await Task.find({ orgId, state: "ESCALATED" })
+    const orgId = req.orgId;
+    const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
+
+    const tasks = await Task.find({ orgId, state: TASK_STATES.ESCALATED })
       .populate("owner", "name email role")
       .populate("createdBy", "name email role")
-      .sort({ updatedAt: -1 });
+      .sort({ updatedAt: -1 })
+      .limit(limit);
 
     res.json({
       success: true,
@@ -60,22 +103,31 @@ export const getEscalatedTasks = async (req, res, next) => {
   }
 };
 
+/**
+ * Get overdue tasks for tenant with bounded limits.
+ */
 export const getOverdueTasks = async (req, res, next) => {
   try {
-    const orgId = req.user.orgId;
+    const orgId = req.orgId;
     const now = new Date();
+    const limit = Math.min(parseInt(req.query.limit || "50", 10), 100);
 
-    const missedAck = await Task.find({
-      orgId,
-      state: "OPEN",
-      ackDeadline: { $lt: now },
-    }).populate("owner", "name email");
-
-    const missedAction = await Task.find({
-      orgId,
-      state: { $in: ["ACKNOWLEDGED", "IN_PROGRESS"] },
-      actionDeadline: { $lt: now },
-    }).populate("owner", "name email");
+    const [missedAck, missedAction] = await Promise.all([
+      Task.find({
+        orgId,
+        state: TASK_STATES.OPEN,
+        ackDeadline: { $lt: now },
+      })
+        .populate("owner", "name email")
+        .limit(limit),
+      Task.find({
+        orgId,
+        state: { $in: [TASK_STATES.ACKNOWLEDGED, TASK_STATES.IN_PROGRESS] },
+        actionDeadline: { $lt: now },
+      })
+        .populate("owner", "name email")
+        .limit(limit),
+    ]);
 
     res.json({
       success: true,
@@ -89,45 +141,87 @@ export const getOverdueTasks = async (req, res, next) => {
   }
 };
 
+/**
+ * Get member performance report.
+ * Resolves N+1 query problem by replacing 3N+1 queries with a single aggregation
+ * and caching the tenant report in Redis.
+ */
 export const getMemberPerformance = async (req, res, next) => {
   try {
-    const orgId = req.user.orgId;
-    // total assigned per member
-    const members = await User.find({ orgId, role: "MEMBER", isActive: true });
+    const orgId = req.orgId;
 
-    const report = [];
+    // 1. Check tenant cache
+    const cacheKey = "dashboard:member-performance";
+    const cachedReport = await getTenantCache(orgId, cacheKey);
+    if (cachedReport) {
+      return res.json({
+        success: true,
+        report: cachedReport,
+        source: "cache",
+      });
+    }
 
-    for (const member of members) {
-      const totalAssigned = await Task.countDocuments({ orgId, owner: member._id });
-      const completed = await Task.countDocuments({
-        orgId,
-        owner: member._id,
-        state: "CLOSED",
-      });
-      const escalationsCaused = await Task.countDocuments({
-        orgId,
-        owner: member._id,
-        state: "ESCALATED",
-      });
+    // 2. Fetch active members for tenant (Query 1)
+    const members = await User.find({ orgId, role: "MEMBER", isActive: true })
+      .select("name email")
+      .lean();
+
+    // 3. Batch aggregate all member task stats in a single query (Query 2)
+    const taskStats = await Task.aggregate([
+      { $match: { orgId } },
+      {
+        $group: {
+          _id: "$owner",
+          totalAssigned: { $sum: 1 },
+          completed: {
+            $sum: { $cond: [{ $eq: ["$state", TASK_STATES.CLOSED] }, 1, 0] },
+          },
+          escalationsCaused: {
+            $sum: { $cond: [{ $eq: ["$state", TASK_STATES.ESCALATED] }, 1, 0] },
+          },
+        },
+      },
+    ]);
+
+    // 4. Map stats in-memory in O(M) time
+    const statsMap = new Map();
+    for (const stat of taskStats) {
+      if (stat._id) {
+        statsMap.set(stat._id.toString(), stat);
+      }
+    }
+
+    const report = members.map((member) => {
+      const memberIdStr = member._id.toString();
+      const stat = statsMap.get(memberIdStr) || {
+        totalAssigned: 0,
+        completed: 0,
+        escalationsCaused: 0,
+      };
 
       const completionRate =
-        totalAssigned === 0 ? 0 : Math.round((completed / totalAssigned) * 100);
+        stat.totalAssigned === 0
+          ? 0
+          : Math.round((stat.completed / stat.totalAssigned) * 100);
 
-      report.push({
+      return {
         member: {
           id: member._id,
           name: member.name,
           email: member.email,
         },
-        totalAssigned,
-        completed,
-        escalationsCaused,
+        totalAssigned: stat.totalAssigned,
+        completed: stat.completed,
+        escalationsCaused: stat.escalationsCaused,
         completionRate,
-      });
-    }
+      };
+    });
 
     // Sort by best performers
     report.sort((a, b) => b.completionRate - a.completionRate);
+
+    // 5. Store in tenant cache
+    await setTenantCache(orgId, cacheKey, report, DASHBOARD_CACHE_TTL_SEC);
 
     res.json({
       success: true,
@@ -138,10 +232,13 @@ export const getMemberPerformance = async (req, res, next) => {
   }
 };
 
+/**
+ * Get tenant activity feed with bounded limits.
+ */
 export const getActivityFeed = async (req, res, next) => {
   try {
-    const orgId = req.user.orgId;
-    const limit = parseInt(req.query.limit || "20", 10);
+    const orgId = req.orgId;
+    const limit = Math.min(parseInt(req.query.limit || "20", 10), 100);
 
     const feed = await TaskStateTransition.find({ orgId })
       .populate("task", "title state")

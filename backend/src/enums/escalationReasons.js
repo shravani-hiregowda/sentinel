@@ -1,0 +1,5 @@
+export const ESCALATION_REASONS = Object.freeze({
+  MISSED_ACK: "MISSED_ACK",
+  MISSED_ACTION: "MISSED_ACTION",
+  MANUAL: "MANUAL",
+});

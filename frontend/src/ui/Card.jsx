@@ -1,4 +1,3 @@
-import { theme } from "./theme";
 
 export default function Card({ title, value, tone = "default" }) {
   const colorMap = {

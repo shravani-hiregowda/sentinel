@@ -1,16 +1,15 @@
-import { escalateMissedActionTasks } from "../services/escalationService.js";
-
+/**
+ * @deprecated Deprecated in Phase 2.
+ * Sentinel SLA escalation processing has been migrated to the distributed
+ * BullMQ worker architecture (`src/workers/escalation.worker.js`).
+ *
+ * In-process setInterval polling is permanently discontinued to ensure
+ * reliable horizontal scaling, idempotency, and eliminate duplicate escalations.
+ */
 export const startActionEscalationJob = () => {
-  console.log("🕒 Action escalation job started (runs every 30 seconds)");
-
-  setInterval(async () => {
-    try {
-      const result = await escalateMissedActionTasks();
-      if (result.escalatedCount > 0) {
-        console.log(`✅ Escalated ${result.escalatedCount} missed-action tasks`);
-      }
-    } catch (err) {
-      console.error("❌ Action Escalation job error:", err.message);
-    }
-  }, 30 * 1000);
+  console.warn(
+    "⚠️ startActionEscalationJob is deprecated. Start `npm run worker` for SLA processing."
+  );
 };
+
+export default startActionEscalationJob;

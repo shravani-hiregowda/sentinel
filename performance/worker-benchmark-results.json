@@ -1,0 +1,74 @@
+{
+  "concurrencyResults": [
+    {
+      "concurrency": 1,
+      "taskCount": 400,
+      "totalTimeSec": "2.43",
+      "throughputRps": "164.3",
+      "avgDurationMs": "5.37",
+      "p50Ms": 5,
+      "p95Ms": 8,
+      "p99Ms": 10,
+      "failed": 0
+    },
+    {
+      "concurrency": 5,
+      "taskCount": 400,
+      "totalTimeSec": "1.04",
+      "throughputRps": "385.4",
+      "avgDurationMs": "10.87",
+      "p50Ms": 10,
+      "p95Ms": 18,
+      "p99Ms": 26,
+      "failed": 0
+    },
+    {
+      "concurrency": 10,
+      "taskCount": 400,
+      "totalTimeSec": "0.86",
+      "throughputRps": "465.1",
+      "avgDurationMs": "18.59",
+      "p50Ms": 18,
+      "p95Ms": 24,
+      "p99Ms": 26,
+      "failed": 0
+    },
+    {
+      "concurrency": 20,
+      "taskCount": 400,
+      "totalTimeSec": "0.86",
+      "throughputRps": "467.3",
+      "avgDurationMs": "36.84",
+      "p50Ms": 33,
+      "p95Ms": 72,
+      "p99Ms": 82,
+      "failed": 0
+    }
+  ],
+  "scalingResults": [
+    {
+      "workers": 1,
+      "taskCount": 600,
+      "totalTimeSec": "1.29",
+      "throughputRps": "464.8",
+      "distribution": "600",
+      "failures": 0
+    },
+    {
+      "workers": 2,
+      "taskCount": 600,
+      "totalTimeSec": "1.22",
+      "throughputRps": "491.0",
+      "distribution": "299 / 301",
+      "failures": 0
+    },
+    {
+      "workers": 3,
+      "taskCount": 600,
+      "totalTimeSec": "1.28",
+      "throughputRps": "469.9",
+      "distribution": "198 / 200 / 202",
+      "failures": 0
+    }
+  ]
+}

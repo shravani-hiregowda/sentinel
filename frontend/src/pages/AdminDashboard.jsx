@@ -3,7 +3,6 @@ import {
   fetchSummary,
   fetchMembers,
   fetchTaskTimeline,
-  fetchAdminTasks,
   fetchActivityFeed,
 } from "../api/adminApi";
 
@@ -21,7 +20,6 @@ export default function AdminDashboard() {
   const [summary, setSummary] = useState({});
   const [members, setMembers] = useState([]);
   const [activity, setActivity] = useState([]);
-  const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const [createOpen, setCreateOpen] = useState(false);
@@ -34,7 +32,6 @@ export default function AdminDashboard() {
   /* ---------------- SAFE ARRAYS ---------------- */
   const safeMembers = Array.isArray(members) ? members : [];
   const safeActivity = Array.isArray(activity) ? activity : [];
-  const safeTasks = Array.isArray(tasks) ? tasks : [];
 
   /* ---------------- HELPERS ---------------- */
   const formatDate = (value) => {
@@ -51,7 +48,6 @@ export default function AdminDashboard() {
       const summaryData = await fetchSummary();
       const memberData = await fetchMembers();
       const activityData = await fetchActivityFeed(15);
-      const tasksData = await fetchAdminTasks({});
 
       setSummary(summaryData?.summary || {});
       setMembers(memberData?.report || []);
@@ -62,8 +58,6 @@ export default function AdminDashboard() {
           ? activityData.feed
           : []
       );
-
-      setTasks(tasksData?.tasks || []);
     } catch (err) {
       console.error("❌ Dashboard load failed:", err);
     } finally {
