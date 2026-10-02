@@ -9,7 +9,7 @@
     "seed": "node src/seed/seedUsers.js",
     "worker": "node src/workers/escalation.worker.js",
     "worker:dev": "nodemon src/workers/escalation.worker.js",
-    "test": "node --test --test-concurrency=1 tests/**/*.test.js",
+    "test": "node --test --test-concurrency=1 tests/*.test.js",
     "test:ci-perf": "node src/scripts/ciPerformanceSmoke.js",
     "db:init-indexes": "node src/scripts/initIndexes.js",
     "db:bootstrap": "node src/scripts/bootstrapProduction.js",
