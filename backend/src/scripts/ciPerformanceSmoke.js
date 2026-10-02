@@ -30,6 +30,9 @@ async function runCiPerformanceSmoke() {
 
   await connectDB();
   await connectRedis();
+  await Task.syncIndexes();
+  await User.syncIndexes();
+  await Membership.syncIndexes();
 
   const testOrgId = new mongoose.Types.ObjectId();
   const testUserId = new mongoose.Types.ObjectId();
