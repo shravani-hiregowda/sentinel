@@ -48,6 +48,24 @@ export const apiRateLimiter = rateLimit({
 });
 
 /**
+ * AI Assistant Rate Limiter (Phase 7).
+ * AI operations invoke LLM inferencing and multi-step tool calls which are computationally
+ * more intensive than standard REST queries.
+ * Tenant and user aware: tracks by user ID (or fallback IP).
+ * Default: 30 requests per 15-minute window.
+ */
+export const aiRateLimiter = rateLimit({
+  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10), // 15 mins
+  max: isTestEnv ? 50000 : parseInt(process.env.AI_RATE_LIMIT_MAX || "30", 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  validate: { keyGeneratorIpFallback: false },
+  handler: rateLimitHandler,
+  skip: (req) => isTestEnv && req.headers["x-test-bypass-ratelimit"] === "true",
+});
+
+/**
  * Factory for creating custom-scoped rate limiters (e.g. for testing or sensitive operations)
  */
 export const createCustomLimiter = (options = {}) => {

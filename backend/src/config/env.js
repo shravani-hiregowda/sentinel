@@ -39,6 +39,14 @@ const env = {
   // Logging & Shutdown
   LOG_LEVEL: process.env.LOG_LEVEL || (process.env.NODE_ENV === "development" ? "debug" : "info"),
   SHUTDOWN_TIMEOUT_MS: parseInt(process.env.SHUTDOWN_TIMEOUT_MS || "10000", 10),
+
+  // IBM watsonx AI Integration (Phase 7)
+  IBM_WATSONX_API_KEY: process.env.IBM_WATSONX_API_KEY || "",
+  IBM_WATSONX_PROJECT_ID: process.env.IBM_WATSONX_PROJECT_ID || "",
+  IBM_WATSONX_URL: process.env.IBM_WATSONX_URL || "https://us-south.ml.cloud.ibm.com",
+  IBM_WATSONX_MODEL_ID: process.env.IBM_WATSONX_MODEL_ID || "ibm/granite-3-8b-instruct",
+  IBM_WATSONX_API_VERSION: process.env.IBM_WATSONX_API_VERSION || "2024-05-31",
+  AI_RATE_LIMIT_MAX: parseInt(process.env.AI_RATE_LIMIT_MAX || "30", 10),
 };
 
 if (env.isProduction && !env.JWT_SECRET) {

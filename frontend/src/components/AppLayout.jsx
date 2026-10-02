@@ -1,6 +1,7 @@
 import { useAuth } from "../context/AuthContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
+import AiAssistantModal from "./AiAssistantModal";
 
 export default function AppLayout({ title, children }) {
   const { user, logout } = useAuth();
@@ -10,6 +11,7 @@ export default function AppLayout({ title, children }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
 
   const [isDarkMode, setIsDarkMode] = useState(() => {
     return localStorage.getItem("sentinel_theme") === "dark";
@@ -210,7 +212,38 @@ export default function AppLayout({ title, children }) {
             <h3 style={{ margin: 0 }}>{title}</h3>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <button
+              onClick={() => setAiModalOpen(true)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "6px",
+                background: "linear-gradient(135deg, #0F62FE 0%, #0043CE 100%)",
+                color: "#FFFFFF",
+                border: "none",
+                borderRadius: "var(--radius-md)",
+                padding: "7px 14px",
+                fontSize: "13px",
+                fontWeight: 600,
+                cursor: "pointer",
+                boxShadow: "var(--shadow-sm)",
+                transition: "all var(--transition-fast)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = "translateY(-1px)";
+                e.currentTarget.style.boxShadow = "var(--shadow-md)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = "translateY(0)";
+                e.currentTarget.style.boxShadow = "var(--shadow-sm)";
+              }}
+              title="Open Sentinel AI Operations Assistant (IBM watsonx)"
+            >
+              <span>⚡</span>
+              <span>AI Assistant</span>
+            </button>
+
             <button
               onClick={() => setIsDarkMode(!isDarkMode)}
               style={{
@@ -272,6 +305,12 @@ export default function AppLayout({ title, children }) {
           {children}
         </section>
       </main>
+
+      {/* AI OPERATIONS ASSISTANT MODAL */}
+      <AiAssistantModal
+        open={aiModalOpen}
+        onClose={() => setAiModalOpen(false)}
+      />
     </div>
   );
 }

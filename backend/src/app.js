@@ -16,6 +16,7 @@ import authRoutes from "./routes/auth.routes.js";
 import adminRoutes from "./routes/admin.routes.js";
 import dashboardRoutes from "./routes/dashboard.routes.js";
 import userRoutes from "./routes/user.routes.js";
+import aiRoutes from "./routes/ai.routes.js";
 
 import errorMiddleware from "./middlewares/error.middleware.js";
 
@@ -49,6 +50,7 @@ app.use("/api/tasks", apiRateLimiter, taskRoutes);
 app.use("/api/admin", apiRateLimiter, adminRoutes);
 app.use("/api/admin/dashboard", apiRateLimiter, dashboardRoutes);
 app.use("/api/users", apiRateLimiter, userRoutes);
+app.use("/api/ai", aiRoutes);
 
 /* ---------------- 404 HANDLER ---------------- */
 app.use((req, res) => {

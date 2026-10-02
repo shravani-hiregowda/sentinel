@@ -173,6 +173,31 @@ export const validateAdminTaskQuery = (req, res, next) => {
   next();
 };
 
+/**
+ * Validates AI Assistant chat payload (Phase 7).
+ * Ensures prompt or messages array is provided and bounded in size.
+ */
+export const validateAiChat = (req, res, next) => {
+  const { prompt, messages } = req.body || {};
+
+  const hasPrompt = typeof prompt === "string" && prompt.trim().length > 0;
+  const hasMessages = Array.isArray(messages) && messages.length > 0;
+
+  if (!hasPrompt && !hasMessages) {
+    return sendValidationError(res, "A natural language prompt or non-empty messages array is required");
+  }
+
+  if (hasPrompt && prompt.trim().length > 2000) {
+    return sendValidationError(res, "Prompt exceeds maximum allowed length of 2000 characters");
+  }
+
+  if (hasMessages && messages.length > 30) {
+    return sendValidationError(res, "Conversation history exceeds maximum allowed depth of 30 messages");
+  }
+
+  next();
+};
+
 export default {
   validateObjectIdParam,
   validateCreateTask,
@@ -180,4 +205,5 @@ export default {
   validateStateTransition,
   validateCreateMember,
   validateAdminTaskQuery,
+  validateAiChat,
 };

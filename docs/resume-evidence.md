@@ -85,3 +85,8 @@ This document extracts concrete, defensible engineering achievements, performanc
 > * "Containerized and productionized a multi-tenant SaaS application using Docker and Docker Compose, separating API and worker runtimes under unprivileged Alpine users and decoupling `/health` and `/ready` probes for automated zero-downtime routing."
 > * "Designed an automated GitHub Actions CI/CD pipeline featuring containerized MongoDB/Redis integration testing, dependency security audits, and a 110-test automated regression suite with 100% pass rate."
 > * "Conducted rigorous load testing using Grafana k6 across 50,000 tasks and up to 100 virtual users, benchmarking tenant-scoped Redis caching that sustained 934 RPS at sub-90ms p95 latency."
+
+### Option 3: Enterprise AI & Platform Engineering Focus (Phase 7)
+> * "Integrated IBM watsonx with Sentinel REST APIs to provide role-aware natural-language task and SLA operations while preserving tenant isolation, RBAC, state-machine validation, and auditability."
+> * "Engineered a hardened AI service layer with an allowlist of 8 validated tool schemas, rejecting prompt injection and ensuring zero direct LLM access to databases while backing all writes with atomic state transitions and immutable audit logs."
+> * "Designed graceful degradation for enterprise AI operations, implementing dedicated user-scoped rate limiting (30 req/15m) and low-cardinality Prometheus telemetry (`sentinel_ai_requests_total`) to guarantee core task governance continuity during upstream provider outages."

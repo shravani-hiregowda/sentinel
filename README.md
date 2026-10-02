@@ -21,6 +21,7 @@
 - [Local Development Setup](#local-development-setup)
 - [Production Deployment](#production-deployment)
 - [Engineering Trade-offs](#engineering-trade-offs)
+- [AI Operations Assistant (IBM watsonx)](#ai-operations-assistant-ibm-watsonx)
 - [Known Limitations & Future Work](#known-limitations--future-work)
 
 ---
@@ -282,6 +283,29 @@ docker compose up -d --scale worker=3
 
 ---
 
+## AI Operations Assistant (IBM watsonx)
+
+Sentinel features an optional, enterprise AI Operations Assistant powered by **IBM watsonx.ai** (`/ml/v1/chat/completions`) that enables operators to query task states, analyze SLA breaches, and perform controlled task actions in natural language.
+
+### Core Security Principles
+* **Additive Integration**: Sentinel's existing backend remains the single source of truth for Auth, RBAC, tenant isolation, and task state.
+* **No Direct Database Access**: The LLM has zero direct database credentials or query privileges. It interacts exclusively via an allowlisted function-calling interface.
+* **Zero Trust Tenancy**: The server derives `orgId` strictly from the verified JWT token (`req.user.orgId`). Any client/prompt attempts to access or spoof other tenants are systematically ignored.
+* **State Machine & Audit Enforcement**: Task mutations (e.g. `acknowledgeTask`) invoke Sentinel's centralized `transitionTask` engine and record immutable entries in `AuditLog`.
+* **Optional & Resilient**: AI provider downtime or unconfigured credentials never impact core task creation, SLA escalation workers, or dashboards (graceful degradation with HTTP 503).
+
+### Allowlisted AI Tools
+- `getTasks`: Query organization tasks filtered by state or owner.
+- `getOverdueTasks`: List tasks breaching ACK or Action deadlines.
+- `getEscalatedTasks`: Retrieve escalated tasks and historical escalation reasons.
+- `getTaskDetails`: Detailed task state and SLA deadlines.
+- `getTaskSLAHistory`: Chronological state transitions and escalation events.
+- `getTeamPerformance`: Aggregated completion rates and overdue counts per member.
+- `createTask` (**ADMIN only**): Create new tasks with SLA deadlines; creates `AuditLog`.
+- `acknowledgeTask` (**Owner/ADMIN only**): Validates ownership and executes state transition to `ACKNOWLEDGED`.
+
+---
+
 ## Known Limitations & Future Work
 
 1. **Single-Primary Write Contention**: High write concurrency (> 500 writes/sec) is bounded by MongoDB primary lock throughput. Future scaling involves sharding by `orgId`.
@@ -292,6 +316,7 @@ docker compose up -d --scale worker=3
 
 ## Documentation Index
 - [Architecture Specification](docs/architecture.md)
+- [IBM watsonx AI Assistant Specification](docs/ai-assistant.md)
 - [Engineering Decisions Record](docs/engineering-decisions.md)
 - [Technical Interview Defense Guide](docs/interview-guide.md)
 - [Resume & Portfolio Evidence](docs/resume-evidence.md)

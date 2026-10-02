@@ -151,3 +151,11 @@ export const changePasswordApi = async (payload) => {
   const res = await api.patch("/api/users/change-password", payload);
   return res.data;
 };
+
+export const sendAiChat = async (prompt, messages = []) => {
+  const res = await api.post("/api/ai/chat", {
+    prompt,
+    messages,
+  });
+  return res.data;
+};

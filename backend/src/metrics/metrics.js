@@ -256,6 +256,63 @@ export const recordCacheMiss = (resource = "default") => {
   cacheMissesTotal.inc({ resource });
 };
 
+/* ---------------- AI ASSISTANT METRICS (PHASE 7) ---------------- */
+
+export const aiRequestsTotal = new client.Counter({
+  name: "sentinel_ai_requests_total",
+  help: "Total count of Sentinel AI Assistant requests",
+  labelNames: ["status"],
+  registers: [register],
+});
+
+export const aiRequestFailuresTotal = new client.Counter({
+  name: "sentinel_ai_request_failures_total",
+  help: "Total count of failed AI requests categorized by error type",
+  labelNames: ["error_type"],
+  registers: [register],
+});
+
+export const aiToolCallsTotal = new client.Counter({
+  name: "sentinel_ai_tool_calls_total",
+  help: "Total count of allowlisted AI tool invocations",
+  labelNames: ["tool_name", "status"],
+  registers: [register],
+});
+
+export const aiToolFailuresTotal = new client.Counter({
+  name: "sentinel_ai_tool_failures_total",
+  help: "Total count of AI tool invocation failures",
+  labelNames: ["tool_name", "reason"],
+  registers: [register],
+});
+
+export const aiRequestDurationSeconds = new client.Histogram({
+  name: "sentinel_ai_request_duration_seconds",
+  help: "Histogram of end-to-end AI Assistant request latency in seconds",
+  labelNames: ["status"],
+  buckets: [0.1, 0.25, 0.5, 1, 2, 5, 10, 20],
+  registers: [register],
+});
+
+export const recordAiRequest = (status = "success", durationSec = null) => {
+  aiRequestsTotal.inc({ status });
+  if (durationSec !== null && durationSec !== undefined) {
+    aiRequestDurationSeconds.observe({ status }, durationSec);
+  }
+};
+
+export const recordAiRequestFailure = (errorType = "UNKNOWN") => {
+  aiRequestFailuresTotal.inc({ error_type: errorType });
+};
+
+export const recordAiToolCall = (toolName, status = "success") => {
+  aiToolCallsTotal.inc({ tool_name: toolName || "unknown", status });
+};
+
+export const recordAiToolFailure = (toolName, reason = "UNKNOWN") => {
+  aiToolFailuresTotal.inc({ tool_name: toolName || "unknown", reason });
+};
+
 export default {
   register,
   recordHttpRequest,
@@ -272,4 +329,8 @@ export default {
   recordWorkerJob,
   recordWorkerJobFailure,
   updateQueueMetrics,
+  recordAiRequest,
+  recordAiRequestFailure,
+  recordAiToolCall,
+  recordAiToolFailure,
 };
